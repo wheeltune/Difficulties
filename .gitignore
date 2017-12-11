@@ -1,0 +1,4 @@
+*.out
+*.dSYM
+*.ipynb_checkpoints
+*\regression-task-Tkachenko-597-weak.ipynb
