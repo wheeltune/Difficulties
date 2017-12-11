@@ -1,0 +1,149 @@
+\documentclass[12pt]{article}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{cmap}
+
+\usepackage{hyphenat}
+% \hyphenation{те-о-ре-ти-че-ские вре-ме-ни мно-же-ство
+% под-мно-же-ство име-ю-щих про-ти-во-ре-чит ма-кси-маль-ный
+% рас-кра-ши-ва-е-мым со-о-тветс-твен-но}
+
+\usepackage{amsmath}
+\usepackage{tabularx}
+\usepackage{subcaption}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{floatrow}
+\usepackage{indentfirst}
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks,
+    citecolor=black,
+    filecolor=black,
+    linkcolor=black,
+    urlcolor=black
+}
+
+\usepackage{amsthm,amssymb}
+
+\usepackage{listings}
+\lstset{basicstyle=\normalfont,breaklines=true}
+
+\newtheorem{lemma}{Лемма}
+\newtheorem{theorem}{Теорема}
+\newtheorem{remark}{Замечание}
+\newtheorem{algorithm}{Алгоритм}
+\renewcommand{\qedsymbol}{$\blacksquare$}
+
+\usepackage[top=0.7in, bottom=1.1in, left=1in, right=1in]{geometry}
+
+\title{3-расскрашиваемость графа}
+\author{Крохалев Арсений}
+
+\begin{document}
+\maketitle
+
+\section{Введение}
+Существует много известных NP-полных задач, включая такие важные теоретические проблемы в графе, как раскраски и независимые множества. Человечество до сих поп не знает, существовании полиномиальных алгоритмов для этих проблем, но это не устраняет необходимости их решения как можно эффективнее. Первый не тривиальный алгоритм был предложен Лаувером (Lawer, 1937), который работает за $O\left(1.4422^n\right)$. На сегодняшний день самый быстрый известный алгоритм работает за время $O\left(1.3289^n\right)$ и предложен Ричардом Бейгелем и Дэвидом Эппсштейном (Richard Beigel and David Eppstein, 2000).
+
+В данной статье будет рассмотрен алгоритм Лаувера, а также доказательство времени работы $O\left(1.4422^n\right)$ и реализация на языке $\text{C++}$.
+
+\section{Вспомогательные утверждения}
+\subsection{Обозначения}
+$\overline{a...b} = \left\{x \hookrightarrow x \in \mathbb{N} \wedge x \geq a \wedge x \leq b \right\}$
+
+$v, u, v_1, u_1, \dots$ --- обозначают вершины, а $e, e_1, \dots$ --- ребра. В данной работе все ребра будут не ориентированы, поэтому не теряя общности можно считать, что $e = \left(v, u\right) = \left(u, v\right)$
+
+Графами будут обозначаться заглавными буквами $G, F$. $G = \left(V, E\right)$, где $V$ --- множество вершин, $G$ --- множество ребер, также примим $\left|V\right| = n$. Также иногда удобно обозначать множество вершин как $V_G$, а ребер $E_G$.
+
+Для множества $S \subseteq V$, обозначим $G\left[S\right]$ --- подграф, индуцированный на подмножество вершин $S$, или другими словами: 
+$$G\left[S\right] = \left(V_{G\left[S\right]}, E_{G\left[S\right]}\right) \quad V_{G\left[S\right]} = S, ~ E_{G\left[S\right]} = \left\{e = \left(v_1, v_2\right) \, | \, e \in E_G \wedge v_1 \in S \wedge v_2 \in S \right\}$$
+
+Для графа $G$ и $v \in V$ введем $N\left(v\right)$ --- множество всех смежных с $v$ вершин. Или более формально 
+$$N\left(v\right) = \left\{u \, | \, \exists \, e \in E \hookrightarrow e = \left(v, u\right) \right\}$$
+
+Через $I\left(G\right)$ обозначим множество всех максимальных независимых подмножеств вершин (далее $\text{MIS}$) в $G$. Также через $I^{\leq k}\left(G\right)$ --- $\text{MIS}$, размер которых не превышает $k$, a $I^{\leq k}_{v}\left(G\right)$ --- только те подмножества, которые вдобавок содержат вершину $v$. По аналогии зададим $I^{= k}\left(G\right)$, $I^{= k}_{v}\left(G\right)$, $I^{\geq k}\left(G\right)$ и $I^{\geq k}_{v}\left(G\right)$
+
+\subsection{Теория}
+\subsubsection{Максимальные независимые множества}
+\begin{theorem}
+Максимальное число k-$\text{MIS}$ в графе равно
+\begin{equation}\label{eq:1}
+    {\lfloor n/k \rfloor}^{\left( \lfloor n/k \rfloor + 1\right)k - n}\left(\lfloor n/k \rfloor + 1\right)^{n - \lfloor n/k \rfloor k}
+\end{equation}
+%и экстримальные графы состоят из объединения $k$ --- $\left(n \mod{k}\right)K_{\lfloor n/k \rfloor s}$ и $\left(n \mod{k}\right)K_{\lfloor n/k \rfloor + 1 s}$
+\end{theorem}
+\begin{proof}
+	Для смежных $v$ и $w$ в $G$ обозначим $G_{v\to w}$ как граф, в котором $v$ заменено на копию $w$ с сохранением ребра между ними.
+	
+	Мы хотим найти зависимость между количеством k-$\text{MIS}$ в графе $G_{v\to w}$ и в графе $G$,
+	$$\left| I^{=k}\left(G_{v \to w}\right) \right| = \left| I^{=k}\left(G\right) \right| + \dots$$ 
+	Ни одно из $k-\text{MIS}$ в обоих графах не может содержать $v$ и $w$ одновременно, поскольку они смежны. Заметим, что $k-\text{MIS}$, содержащий $w$ в одном из графов будет независимым множеством в другом поскольку все изменения касаются только вершины $v$, которая не входит в это множеств и будут являться максимальными поскольку $v$ всё ещё не может быть добавлено. Исходя из этого, $k-\text{MIS}$, содержащие $w$ одинаковы в этих графах. Также $k-\text{MIS}$ в $G_{v \to w}$, содержащие $v$ точно такие же как содержащие $w$, с заменой $v$ на $w$, итак
+	$$\left| I^{=k}\left(G_{v \to w}\right) \right| = \left| I^{=k}\left(G\right) \right| + \left| I^{=k}_w\left(G\right) \right| - \left|I^{=k}_v\left(G\right)\right| + \dots$$
+	Все остальные $k-\text{MIS}$ в $G$, а точнее не содержащие ни $v$, ни $w$, также являются $k-\text{MIS}$ в $G_{v \to w}$ поскольку изменения коснулись только вершины $v$, а она в это множество не входит поэтому могли только появиться новые $k-\text{MIS}$ в $G_{v \to w}$. Обозначим их количество за $f^{=k}_{v \to w}\left(G\right)$.
+	\begin{equation}\label{eq:2}
+	    \left| I^{=k}\left(G_{v \to w}\right) \right| = \left| I^{=k}\left(G\right) \right| + \left| I^{=k}_w\left(G\right) \right| - \left|I^{=k}_v\left(G\right)\right| + f^{=k}_{v \to w}\left(G\right)
+	\end{equation}
+	Совершенно аналогично получим, что 
+	\begin{equation}\label{eq:3}
+	    \left| I^{=k}\left(G_{w \to v}\right) \right| = \left| I^{=k}\left(G\right) \right| + \left| I^{=k}_v\left(G\right) \right| - \left|I^{=k}_w\left(G\right)\right| + f^{=k}_{w \to v}\left(G\right)
+	\end{equation}
+	Теперь рассмотрим граф $G$ из $n$ вершин с максимальным числом $k-MIS$, у которого $v$ и $w$ --- смежные. Тогда $\left| I^{=k}\left(G_{w \to v}\right) \right|$ и $\left| I^{=k}\left(G_{v \to w}\right) \right|$ не могут превышать $\left| I^{=k}\left(G\right) \right|$. Из равенств $\eqref{eq:2}$ и $\eqref{eq:3}$, получим $\left| I^{=k}_v\left(G\right) \right|$ = $\left|I^{=k}_w\left(G\right)\right|$ и $f^{=k}_{v \to w}\left(G\right)$ = $f^{=k}_{w \to v}\left(G\right)$ = 0. Это обозначает, что граф $G$ со смеными $v$ и $w$ можно заменить на $G_{v \to w}$ без изменения величины $\left| I^{=k}\left(G\right) \right|$. Рассмотрим вершину $w \in V$ и $N\left(w\right) = \left\{v_1, v_2, \dots, v_m \right\}$. Последовательной заменой $G$ на $G_{v_i \to w}$ для $i = \overline{1...m}$, мы получим вершины $\left\{w, v1, v2, \dots, v_n\right\}$ образующие отдельную копмоненту в виде клики. Если проделать данную операцию для оставшихся вершин, то в итоге мы получим граф, состоящий из объединения нескольких независимых клик. Положим количество вершин в каждой такой компоненте за $i_1, i_2, \dots, i_l$ где $i_1 + i_2 + \cdots + i_l = n$.
+	\begin{equation}\label{eq:4}
+	    \left| I^{=k}\left(G\right) \right| = \begin{cases}
+	        i_1 \cdot i_2 \cdot \dotsc \cdot i_l & \text{если } l = k
+	        \\
+	        0 & \text{иначе}
+	        \\
+	    \end{cases}
+	\end{equation}
+	Выражение \eqref{eq:4} максимально, если ни один из $i_j$-ых не отличается более чем на единицу, а точнее достигает максимума если $k - \left(n \mod k\right) = \left(\lfloor n / k \rfloor + 1\right)k - n$ будут принимать значение $\lfloor n \ k \rfloor$, а оставшиеся $\left(n \mod k\right) = n - \left(\lfloor n/k \rfloor k\right)$, что дает нам заявленый результат \eqref{eq:1}.
+\end{proof}
+\begin{algorithm}LOL
+    \begin{lstlisting}[mathescape=true]
+        $\textbf{MIS}$(S,I,k)
+            $\textbf{if}$ |S|=k $\textbf{then}$
+                check(I$\cup$S)
+            $\textbf{else if}$ |S|>k>0 $\textbf{then}$
+            	$\textbf{if}$ the largest degree in S is $\geq$ d $\textbf{then}$
+            		let v have the largest degree in S
+            		MIS(S$\backslash$)
+            		MIS()
+            	$\textbf{else}$
+            		let v have the smallest degree is S
+            		MIS()
+            		$textbf{for all}$ w $\in$ N(v) $\textbf{do}
+            			MIS()
+    \end{lstlisting}
+\end{algorithm}
+\subsubsection{Раскраски}
+Раскраска графа состоит в разбиении вершин на $k$ независимых подмножеств, в таком случае можно предположить, что одно из множеств по крайней мере размера $n/k$. А именно сформулируем следующую лемму:
+\begin{lemma}
+Если $G\left[M\right]$ --- это максимальный $k$-раскрашиваемый подграф в $G$ и $0 < k_1 < k$, тогда в $G$ существует максимальный $k_1$-раскрашиваемый подграф $G\left[M'\right]$ ($M' \subseteq M$), размером хотя бы $\left|M\right|\cdot k_1/k$, такой что $G\left[M \backslash M'\right]$ --- это максимальный $\left(k - k_1\right)$-раскрашиваемый подграф в $G\left[V \backslash M'\right]$.
+\end{lemma}
+
+\begin{proof}
+Среди всех $k$-раскрасок графа $G\left[M\right]$ выберем наибольшее множество вершин, имеющих только $k_1$ цветов. Тогда они образуют $k_1$-раскрашиваемый подграф $G\left[M'\right]$ в $G$ размера по крайней мере хотя бы $\left|M\right| \cdot k_1/k$. Получим максимальный $k_1$-раскрашиваемый подграф в $G$. Действительно, предположим, что существует такая вершина $v \in V \backslash M'$, что $M\left[M' \cup v\right]$ является $k_1$-раскрашиваемым. Рассмотрим $2$ случая 
+	\begin{enumerate}
+		\item $v \in M$, но тогда множество $\left\{M' \cup v\right\}$ содержится в $M$ и включает $M'$, что противоречит максимальности $M'$
+		\item $v \in V \backslash M$, тогда докажем, что $G\left[M \cup v\right]$ будет $k$-раскрашиваемым. Во-первых рассмотрим ту самую раскраску $G\left[M\right]$, благодаря которой мы выбрали максимальный $k_1$-раскрашиваемый подграф, обозначим эти цвета номерами $\overline{1...k_1}$, соответственно оставшиеся вершины из $M \backslash M'$ не могут быть покрашены ни в один из этих цветов, для определенности пусть им доступны цвета $\overline{k_1...k}$. Во-вторых по нашему предположению, $M\left[M' \cup v\right]$ --- $k_1$-раскрашиваем, следовательно можно подобрать новую раскраску для $G\left[M'\cup v\right]$ так, чтобы они имели цвета только из $\overline{1...k_1}$. Наконец $G\left[M \cup v\right]$ является $k$-раскрашиваемым, поскольку множества $M \backslash M'$ и $M \cup v$  не имеют общих цветов. А это в свою очередь противоречит максимальности $G\left[M\right]$.
+	\end{enumerate} 
+	Осталось показать максимальность $G\left[M \backslash M'\right]$ в $G\left[V \backslash M'\right]$. Аналогично предположим, что существует такая вершина $v \in V \backslash M'$, что $G\left[M \backslash M' \cup v\right]$ является $\left(k - k_1\right)$-рас\-кра\-ши\-ва\-е\-мым, а $G\left[M'\right]$ --- $k_1$-раскрашиваем, следовательно $G\left[M \cup v\right]$ будет $k$-раскрашиваемым. Получаем противоречие с максимальностью $G\left[M\right]$.
+\end{proof}
+
+\section{Описание алгоритма}
+
+\section{Реализация}
+
+\section{Тестирование и аналитика}
+
+\section{Список литературы}
+
+\newpage
+\tableofcontents
+
+\end{document}
+
+%https://www.ics.uci.edu/~eppstein/pubs/BeiEpp-DIMACS-00.pdf
